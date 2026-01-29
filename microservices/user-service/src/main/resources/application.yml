@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: user-service
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/auth-db}
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
+server:
+  port: 3002
+
+service:
+  urls:
+    job: ${JOB_SERVICE_URL:http://localhost:3003}
+    application: ${APPLICATION_SERVICE_URL:http://localhost:3004}
+
+upload:
+  dir: ${UPLOAD_DIR:public/uploads/}
+
+logging:
+  level:
+    root: INFO
+    com.jobportal: DEBUG

@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: job-service
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/job-db}
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
+server:
+  port: 3003
+  servlet:
+    context-path: /
+
+logging:
+  level:
+    root: INFO
+    com.jobportal: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

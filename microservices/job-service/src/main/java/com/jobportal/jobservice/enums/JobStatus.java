@@ -1,0 +1,6 @@
+package com.jobportal.jobservice.enums;
+
+public enum JobStatus {
+    ACTIVE,
+    CLOSED
+}

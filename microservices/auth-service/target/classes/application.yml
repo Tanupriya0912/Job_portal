@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: auth-service
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/auth-db}
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
+server:
+  port: 3001
+
+jwt:
+  secret: ${JWT_SECRET:M8CcVBFZv8pGo1UFvA3ZSnq+eq7IWTJJcB/fO49H4IA=}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+cookie:
+  name: ${COOKIE_NAME:jobPortalToken}
+  path: ${COOKIE_PATH:/}
+  http-only: true
+  secure: false
+  same-site: Lax
+
+logging:
+  level:
+    root: INFO
+    com.jobportal: DEBUG

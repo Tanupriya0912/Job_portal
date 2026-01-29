@@ -1,0 +1,187 @@
+services:
+  # MongoDB - Single instance with 4 databases
+  mongodb:
+    image: mongo:7.0
+    container_name: job-portal-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    volumes:
+      - ./microservices/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+      - mongodb_data:/data/db
+    networks:
+      - job-portal-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API Gateway (Spring Cloud Gateway)
+  api-gateway:
+    build:
+      context: ./microservices/api-gateway
+      dockerfile: Dockerfile
+    container_name: job-portal-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      SPRING_PROFILES_ACTIVE: docker
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
+      USER_SERVICE_URL: ${USER_SERVICE_URL}
+      JOB_SERVICE_URL: ${JOB_SERVICE_URL}
+      APPLICATION_SERVICE_URL: ${APPLICATION_SERVICE_URL}
+    depends_on:
+      - auth-service
+      - user-service
+      - job-service
+      - application-service
+    networks:
+      - job-portal-network
+    healthcheck:
+      test: curl -f http://localhost:8080/health || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 45s
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./microservices/auth-service
+      dockerfile: Dockerfile
+    container_name: job-portal-auth-service
+    ports:
+      - "3001:3001"
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+      MONGODB_URI: ${AUTH_MONGODB_URI}
+      SPRING_PROFILES_ACTIVE: docker
+      COOKIE_NAME: ${COOKIE_NAME}
+      COOKIE_PATH: ${COOKIE_PATH}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - job-portal-network
+    healthcheck:
+      test: curl -f http://localhost:3001/health || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 45s
+
+  # User Service
+  user-service:
+    build:
+      context: ./microservices/user-service
+      dockerfile: Dockerfile
+    container_name: job-portal-user-service
+    ports:
+      - "3002:3002"
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      MONGODB_URI: ${USER_MONGODB_URI}
+      JOB_SERVICE_URL: http://job-service:3003
+      APPLICATION_SERVICE_URL: http://application-service:3004
+      SPRING_PROFILES_ACTIVE: docker
+      UPLOAD_DIR: ${UPLOAD_DIR}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./public/uploads:/app/public/uploads
+    networks:
+      - job-portal-network
+    healthcheck:
+      test: curl -f http://localhost:3002/health || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 45s
+
+  # Job Service
+  job-service:
+    build:
+      context: ./microservices/job-service
+      dockerfile: Dockerfile
+    container_name: job-portal-job-service
+    ports:
+      - "3003:3003"
+    environment:
+      MONGODB_URI: ${JOB_MONGODB_URI}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - job-portal-network
+    healthcheck:
+      test: curl -f http://localhost:3003/health || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 45s
+
+  # Application Service
+  application-service:
+    build:
+      context: ./microservices/application-service
+      dockerfile: Dockerfile
+    container_name: job-portal-application-service
+    ports:
+      - "3004:3004"
+    environment:
+      MONGODB_URI: ${APPLICATION_MONGODB_URI}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      JOB_SERVICE_URL: http://job-service:3003
+      SPRING_PROFILES_ACTIVE: docker
+      UPLOAD_DIR: ${UPLOAD_DIR}
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./public/uploads:/app/public/uploads
+    networks:
+      - job-portal-network
+    healthcheck:
+      test: curl -f http://localhost:3004/health || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 45s
+
+  # Frontend (Nginx)
+  frontend:
+    build:
+      context: ./full-stack-job-portal-client-main
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8080
+    container_name: job-portal-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - job-portal-network
+    healthcheck:
+      test: curl -f http://localhost:80 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongodb_data:
+
+networks:
+  job-portal-network:
+    driver: bridge
